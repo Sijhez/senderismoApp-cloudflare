@@ -4,7 +4,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "build:templates": "node scripts/build-templates.js",
+    "deploy": "npm run build:templates && wrangler deploy",
+    "dev:worker": "npm run build:templates && wrangler dev"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +21,9 @@
     "gulp-rename": "^2.0.0",
     "gulp-svgmin": "^4.1.0",
     "gulp-svgstore": "^9.0.0",
+    "handlebars": "^4.7.9",
     "hbs": "^4.2.0",
+    "hono": "^4.12.27",
     "mongoose": "^7.8.7",
     "nodemon": "^3.1.4"
   },
@@ -33,6 +38,7 @@
   "description": "",
   "devDependencies": {
     "gulp": "^5.0.0",
-    "gulp-svg-symbols": "^3.2.3"
+    "gulp-svg-symbols": "^3.2.3",
+    "wrangler": "^3.114.17"
   }
 }
