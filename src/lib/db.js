@@ -1,6 +1,16 @@
-import mongoose from 'mongoose';
+import { MongoClient } from 'mongodb';
 
-export async function connectDB(mongoUri) {
-  if (mongoose.connection.readyState === 1) return;
-  await mongoose.connect(mongoUri);
+let client = null;
+let db = null;
+
+export async function getDB(uri) {
+  if (db) return db;
+  client = new MongoClient(uri, {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+    socketTimeoutMS: 10000,
+  });
+  await client.connect();
+  db = client.db();
+  return db;
 }

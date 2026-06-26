@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import bcryptjs from 'bcryptjs';
-import User from '../../models/User.js';
+import { ObjectId } from '../models.js';
 import { render } from '../lib/render.js';
 import { setSession, destroySession } from '../lib/session.js';
 import { usuarioLoggeado, usuarioNoLoggeado } from '../middleware/auth.js';
@@ -33,9 +33,10 @@ auth.post('/signup', usuarioNoLoggeado, async (c) => {
   }
 
   try {
+    const db = c.get('db');
     const salt = await bcryptjs.genSalt(10);
     const passwordEncriptado = await bcryptjs.hash(password, salt);
-    await User.create({ username, email, passwordEncriptado });
+    await db.collection('users').insertOne({ username, email: email.toLowerCase().trim(), passwordEncriptado, myPosts: [] });
     return c.redirect('/login');
   } catch (error) {
     console.log(error);
@@ -51,9 +52,10 @@ auth.get('/login', usuarioNoLoggeado, async (c) => {
 
 auth.post('/login', usuarioNoLoggeado, async (c) => {
   try {
+    const db = c.get('db');
     const body = await c.req.parseBody();
     const { email, password } = body;
-    const foundUser = await User.findOne({ email });
+    const foundUser = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
 
     if (!foundUser) {
       return render(c, 'login', {

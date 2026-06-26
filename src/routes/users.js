@@ -1,7 +1,5 @@
 import { Hono } from 'hono';
-import User from '../../models/User.js';
-import Perfil from '../../models/Perfil.js';
-import Route from '../../models/Route.js';
+import { ObjectId } from '../models.js';
 import { render } from '../lib/render.js';
 import { usuarioLoggeado } from '../middleware/auth.js';
 
@@ -10,59 +8,68 @@ const users = new Hono();
 users.get('/profile', async (c) => {
   const currentUser = c.get('currentUser');
   if (!currentUser) return c.redirect('/login');
-  const idUsuario = currentUser._id;
-  const profileCreate = await Perfil.findOne({ idUsuario });
-  return render(c, 'users/profile', { data: profileCreate });
+  const db = c.get('db');
+  const profile = await db.collection('perfils').findOne({ idUsuario: currentUser._id });
+  return render(c, 'users/profile', { data: profile });
 });
 
 users.get('/create', usuarioLoggeado, async (c) => {
-  const currentUser = c.get('currentUser');
-  const user = await Perfil.findById(currentUser._id).catch(() => null);
-  return render(c, 'users/create', { data: user });
+  return render(c, 'users/create', { data: null });
 });
 
 users.post('/create', usuarioLoggeado, async (c) => {
   const currentUser = c.get('currentUser');
   const body = await c.req.parseBody();
-  await Perfil.create({
+  const db = c.get('db');
+  await db.collection('perfils').insertOne({
     photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?ixlib=rb-=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=8&w=1024&h=1024&q=80',
     nombre: body.nombre,
     apellido: body.apellido,
     usuario: body.usuario,
-    edad: body.edad,
+    edad: Number(body.edad),
     pais: body.pais,
     nivel: body.nivel,
     idUsuario: currentUser._id,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
   return c.redirect('/users/profile');
 });
 
 users.get('/:profileID/edit', async (c) => {
+  const db = c.get('db');
   const profileID = c.req.param('profileID');
-  const foundProfile = await Perfil.findById(profileID);
+  const foundProfile = await db.collection('perfils').findOne({ _id: new ObjectId(profileID) });
   return render(c, 'users/edit', { data: foundProfile });
 });
 
 users.post('/:profileID/edit', usuarioLoggeado, async (c) => {
   const currentUser = c.get('currentUser');
+  const db = c.get('db');
   const profileID = c.req.param('profileID');
   const body = await c.req.parseBody();
-  await Perfil.findByIdAndUpdate(profileID, {
-    photo: body.photo,
-    nombre: body.nombre,
-    apellido: body.apellido,
-    usuario: body.usuario,
-    edad: body.edad,
-    pais: body.pais,
-    nivel: body.nivel,
-    idUsuario: currentUser._id,
-  }, { new: true });
+  await db.collection('perfils').findOneAndUpdate(
+    { _id: new ObjectId(profileID) },
+    { $set: {
+      photo: body.photo,
+      nombre: body.nombre,
+      apellido: body.apellido,
+      usuario: body.usuario,
+      edad: Number(body.edad),
+      pais: body.pais,
+      nivel: body.nivel,
+      idUsuario: currentUser._id,
+      updatedAt: new Date(),
+    }},
+    { returnDocument: 'after' }
+  );
   return c.redirect('/users/profile');
 });
 
 users.post('/:profileID/delete', usuarioLoggeado, async (c) => {
+  const db = c.get('db');
   const profileID = c.req.param('profileID');
-  await Perfil.findByIdAndDelete(profileID);
+  await db.collection('perfils').deleteOne({ _id: new ObjectId(profileID) });
   return c.redirect('/users/profile');
 });
 
@@ -72,16 +79,17 @@ users.get('/myRoute', usuarioLoggeado, async (c) => {
 
 users.post('/myRoute', usuarioLoggeado, async (c) => {
   const currentUser = c.get('currentUser');
+  const db = c.get('db');
   const body = await c.req.parseBody();
   try {
-    const newRoute = await Route.create({
+    const result = await db.collection('routes').insertOne({
       title: body.title,
       state: body.state,
       town: body.town,
-      altitude: body.altitude,
+      altitude: Number(body.altitude),
       lodging: body.lodging,
       magicTown: body.magicTown,
-      hardness: body.hardness,
+      hardness: Number(body.hardness),
       description: body.description,
       imgUrl1: body.imgUrl1,
       imgUrl2: body.imgUrl2,
@@ -90,16 +98,18 @@ users.post('/myRoute', usuarioLoggeado, async (c) => {
       imgUrl5: body.imgUrl5,
       imgUrl6: body.imgUrl6,
       postedBy: currentUser.username,
-      owner: currentUser._id,
+      owner: new ObjectId(currentUser._id),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-    await User.findByIdAndUpdate(currentUser._id, {
-      $push: { myPosts: newRoute._id },
-    });
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(currentUser._id) },
+      { $push: { myPosts: result.insertedId } }
+    );
     return c.redirect('/createdRoutes/allRoutes');
   } catch (error) {
     console.log(error);
-    c.status(500);
-    return render(c, 'users/myRoute');
+    return render(c, 'users/myRoute', {}, 500);
   }
 });
 

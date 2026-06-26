@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.example
+.env.vars
 package-lock.json
 .wrangler/
 src/templates.js
